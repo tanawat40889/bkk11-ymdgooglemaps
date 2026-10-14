@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BKK11 - YMD | ค้นหาบ้าน</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YMD Maps">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="lockScreen" class="lock-screen">
+  <form id="lockForm" class="lock-card" autocomplete="off">
+    <div class="lock-icon">📍</div>
+    <h1 class="lock-title">YMD Maps</h1>
+    <p class="lock-sub">เข้าสู่ระบบด้วยบัญชีเดียวกับโทกังรวมภาค</p>
+    <label class="lock-label">ชื่อ
+      <input id="lockName" class="lock-input" type="text" required maxlength="100" autocomplete="off" autofocus>
+    </label>
+    <label class="lock-label">รหัสสมาชิก
+      <input id="lockCode" class="lock-input" type="password" inputmode="numeric" pattern="[0-9]{6,8}" required maxlength="8" autocomplete="off">
+    </label>
+    <button type="submit" id="lockSubmit" class="lock-btn">เข้าสู่ระบบ</button>
+    <p id="lockError" class="lock-error" role="alert" hidden></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header class="topbar">
+  <div class="topbar-title-row">
+    <h1>🗺️ YMD ค้นหาบ้าน</h1>
+    <button id="lockBtn" class="lock-toggle" aria-label="ออกจากระบบ" title="ออกจากระบบ">🔒</button>
+  </div>
+  <div class="main-tabs" id="mainTabs">
+    <button class="main-tab active" data-tab="ymd">🏠 รายชื่อ YMD</button>
+    <button class="main-tab" data-tab="notes">📌 บันทึกของฉัน</button>
+  </div>
+  <div class="search-wrap" id="ymdControls">
+    <input id="search" type="text" inputmode="search" placeholder="พิมพ์ชื่อเล่น..." autocomplete="off">
+    <button id="clearSearch" class="clear-btn" hidden aria-label="ล้างการค้นหา">✕</button>
+  </div>
+  <div class="filters" id="statusFilters">
+    <button class="chip active" data-status="Active">Active</button>
+    <button class="chip" data-status="Visiting">Visiting</button>
+    <button class="chip" data-status="Passive">Passive</button>
+    <button class="chip" data-status="all">ทั้งหมด</button>
+  </div>
+</header>
+
+<main>
+  <section id="ymdSection">
+    <section id="favSection" hidden>
+      <h2 class="section-title">⭐ รายการโปรด</h2>
+      <ul id="favList" class="card-list"></ul>
+    </section>
+
+    <section>
+      <h2 class="section-title" id="allTitle">รายชื่อทั้งหมด</h2>
+      <ul id="allList" class="card-list"></ul>
+      <p id="emptyState" class="empty-state" hidden>ไม่พบชื่อที่ค้นหา</p>
+    </section>
+  </section>
+
+  <section id="notesSection" hidden>
+    <form id="noteForm" class="note-form">
+      <input id="noteName" class="note-input" type="text" placeholder="ชื่อสถานที่" required autocomplete="off">
+      <input id="noteMap" class="note-input" type="url" placeholder="วางลิงก์ Google Maps ที่นี่" required autocomplete="off" inputmode="url">
+      <input id="noteText" class="note-input" type="text" placeholder="โน้ต (ถ้ามี)" autocomplete="off">
+      <button type="submit" class="note-add-btn">+ เพิ่มสถานที่</button>
+    </form>
+    <h2 class="section-title" id="notesTitle">สถานที่ที่บันทึกไว้</h2>
+    <ul id="notesList" class="card-list"></ul>
+    <p id="notesEmpty" class="empty-state" hidden>ยังไม่มีสถานที่ที่บันทึกไว้ ลองเพิ่มด้านบนได้เลย</p>
+  </section>
+</main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

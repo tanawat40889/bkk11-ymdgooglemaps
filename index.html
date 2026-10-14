@@ -58,6 +58,11 @@
 
 <main>
   <section id="ymdSection">
+    <div class="toolbar">
+      <button type="button" id="addPlaceBtn" class="tool-btn tool-primary">+ เพิ่มรายชื่อ</button>
+      <button type="button" id="colsBtn" class="tool-btn">⚙️ คอลัมน์</button>
+    </div>
+
     <section id="favSection" hidden>
       <h2 class="section-title">⭐ รายการโปรด</h2>
       <ul id="favList" class="card-list"></ul>
@@ -83,6 +88,38 @@
   </section>
 </main>
 </div>
+
+<dialog id="editDialog" class="dlg">
+  <form id="editForm" autocomplete="off">
+    <h2 id="editTitle" class="dlg-title"></h2>
+    <div id="editFields" class="dlg-fields"></div>
+    <p id="editError" class="dlg-error" role="alert" hidden></p>
+    <div class="dlg-actions">
+      <button type="button" id="editDelete" class="dlg-btn dlg-danger" hidden>ลบ</button>
+      <button type="button" id="editCancel" class="dlg-btn">ยกเลิก</button>
+      <button type="submit" id="editSave" class="dlg-btn dlg-primary">บันทึก</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="colsDialog" class="dlg">
+  <h2 class="dlg-title">คอลัมน์</h2>
+  <p class="dlg-hint">ติ๊กเลือกข้อมูลที่จะแสดงบนการ์ด (จำไว้ในเครื่องนี้) และเพิ่มคอลัมน์ใหม่ได้ ทุกคนที่เข้าสู่ระบบจะเห็นคอลัมน์ที่เพิ่ม</p>
+  <ul id="colsList" class="col-list"></ul>
+  <form id="colForm" class="col-form" autocomplete="off">
+    <input id="colLabel" class="fld-input" type="text" maxlength="50" placeholder="ชื่อคอลัมน์ใหม่" required>
+    <select id="colType" class="fld-input">
+      <option value="text">ข้อความ</option>
+      <option value="number">ตัวเลข</option>
+      <option value="checkbox">ติ๊กถูก</option>
+    </select>
+    <button type="submit" class="dlg-btn dlg-primary">เพิ่ม</button>
+  </form>
+  <p id="colError" class="dlg-error" role="alert" hidden></p>
+  <div class="dlg-actions">
+    <button type="button" id="colsClose" class="dlg-btn">ปิด</button>
+  </div>
+</dialog>
 
 <script src="app.js"></script>
 </body>

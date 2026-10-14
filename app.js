@@ -1,6 +1,7 @@
 const FAV_KEY = "ymd_favorites";
 const AUTH_KEY = "tokan_session_v1";
 const CACHE_KEY = "ymd_places_cache";
+const VIS_KEY = "ymd_visible_cols";
 const CUSTOM_KEY = "ymd_custom_places";
 const SEED_KEY = "ymd_custom_seeded_v1";
 const SEED_NAMES_KEY = "ymd_custom_seeded_names";
@@ -42,7 +43,19 @@ const state = {
   status: "Active",
   mainTab: "ymd",
   customPlaces: loadCustomPlaces(),
+  columns: [],
+  visible: loadVisible(),
 };
+
+const BUILTIN_COLS = [
+  { key: "status", label: "สถานะ" },
+  { key: "district", label: "เขต" },
+  { key: "note", label: "โน้ต" },
+  { key: "phone", label: "เบอร์โทร" },
+];
+const STATUSES = ["Active", "Visiting", "Passive"];
+let currentSession = null;
+let editingId = null;
 
 const els = {
   search: document.getElementById("search"),
@@ -72,6 +85,23 @@ const els = {
   noteText: document.getElementById("noteText"),
   notesList: document.getElementById("notesList"),
   notesEmpty: document.getElementById("notesEmpty"),
+  addBtn: document.getElementById("addPlaceBtn"),
+  colsBtn: document.getElementById("colsBtn"),
+  editDialog: document.getElementById("editDialog"),
+  editForm: document.getElementById("editForm"),
+  editTitle: document.getElementById("editTitle"),
+  editFields: document.getElementById("editFields"),
+  editError: document.getElementById("editError"),
+  editSave: document.getElementById("editSave"),
+  editDelete: document.getElementById("editDelete"),
+  editCancel: document.getElementById("editCancel"),
+  colsDialog: document.getElementById("colsDialog"),
+  colsList: document.getElementById("colsList"),
+  colForm: document.getElementById("colForm"),
+  colLabel: document.getElementById("colLabel"),
+  colType: document.getElementById("colType"),
+  colError: document.getElementById("colError"),
+  colsClose: document.getElementById("colsClose"),
 };
 
 // ---------- favorites ----------
@@ -89,7 +119,36 @@ function saveFavorites() {
 }
 
 function personId(p) {
+  return `id:${p.id}`;
+}
+
+function legacyPersonId(p) {
   return `${p.nickname}|${p.googleMap || ""}|${p.note || ""}`;
+}
+
+function migrateFavorites(people) {
+  let changed = false;
+  for (const p of people) {
+    const old = legacyPersonId(p);
+    if (state.favorites.has(old)) {
+      state.favorites.delete(old);
+      state.favorites.add(personId(p));
+      changed = true;
+    }
+  }
+  if (changed) saveFavorites();
+}
+
+function loadVisible() {
+  try {
+    return JSON.parse(localStorage.getItem(VIS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function isVisible(key) {
+  return state.visible[key] !== false;
 }
 
 // ---------- custom places (user notes) ----------
@@ -168,25 +227,69 @@ function clearSession() {
   localStorage.removeItem(CACHE_KEY);
 }
 
-async function fetchPlaces(token) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/ymd_places?select=*&order=nickname`, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw Object.assign(new Error(`ymd_places ${res.status}`), { status: res.status });
-  const rows = await res.json();
-  return rows.map((r) => ({
+function mapRow(r) {
+  return {
+    id: r.id,
+    mtCo: r.mt_co,
     nickname: r.nickname,
     googleMap: r.google_map,
     status: r.status,
     district: r.district,
     phone: r.phone,
     note: r.note,
-  }));
+    extra: r.extra || {},
+  };
 }
 
-function showApp(people) {
-  state.people = people;
+async function api(method, path, body, retried = false) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${currentSession.access_token}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status === 401 && !retried) {
+    const next = await refreshSession(currentSession).catch(() => null);
+    if (next) {
+      currentSession = next;
+      saveSession(next);
+      return api(method, path, body, true);
+    }
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(err.message || `HTTP ${res.status}`), { status: res.status });
+  }
+  return res.json();
+}
+
+async function fetchAll() {
+  const [rows, cols] = await Promise.all([
+    api("GET", "ymd_places?select=*&order=nickname"),
+    api("GET", "ymd_columns?select=*&order=sort,id"),
+  ]);
+  return { people: rows.map(mapRow), columns: cols };
+}
+
+function saveCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ people: state.people, columns: state.columns }));
+  } catch { /* storage full */ }
+}
+
+function sortPeople() {
   state.people.sort((a, b) => a.nickname.localeCompare(b.nickname, "th"));
+}
+
+function showApp(people, columns) {
+  state.people = people;
+  state.columns = columns;
+  sortPeople();
+  migrateFavorites(state.people);
   els.lockScreen.hidden = true;
   els.app.hidden = false;
   render();
@@ -203,38 +306,40 @@ function showLock(msg = "") {
 
 function lockApp() {
   clearSession();
+  currentSession = null;
   state.people = [];
+  state.columns = [];
   showLock();
 }
 
-async function start(s, retried = false) {
-  let people;
+function readCache() {
   try {
-    people = await fetchPlaces(s.access_token);
-    localStorage.setItem(CACHE_KEY, JSON.stringify(people));
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+    if (c && Array.isArray(c.people) && c.people.length && c.people[0].id !== undefined) return c;
+  } catch { /* ignore */ }
+  return null;
+}
+
+async function start(s) {
+  currentSession = s;
+  let data;
+  try {
+    data = await fetchAll();
   } catch (e) {
-    if (e.status === 401 && !retried) {
-      const next = await refreshSession(s).catch(() => null);
-      if (next) {
-        saveSession(next);
-        return start(next, true);
-      }
-    }
     if (e.status === undefined) {
-      try {
-        const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-        if (cached && cached.length) return showApp(cached);
-      } catch { /* fall through */ }
+      const c = readCache();
+      if (c) return showApp(c.people, c.columns || []);
       return showLock("เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง");
     }
     clearSession();
     return showLock(e.status === 401 ? "หมดเวลาเข้าสู่ระบบ กรุณาเข้าใหม่" : "โหลดข้อมูลไม่สำเร็จ");
   }
-  if (!people.length) {
+  if (!data.people.length) {
     clearSession();
     return showLock("ไม่มีสิทธิ์ดูข้อมูล");
   }
-  showApp(people);
+  showApp(data.people, data.columns);
+  saveCache();
 }
 
 function attachLockEvents() {
@@ -275,7 +380,8 @@ function normalize(s) {
 
 function matchesQuery(p, q) {
   if (!q) return true;
-  const hay = normalize(p.nickname + " " + (p.note || "") + " " + (p.district || ""));
+  const extraText = Object.values(p.extra || {}).filter((v) => typeof v === "string").join(" ");
+  const hay = normalize(p.nickname + " " + (p.note || "") + " " + (p.district || "") + " " + extraText);
   return hay.includes(q);
 }
 
@@ -304,16 +410,39 @@ function render() {
   els.emptyState.hidden = filtered.length !== 0;
 }
 
+function safeUrl(u) {
+  return /^https?:\/\//i.test(u || "") ? u : null;
+}
+
+function metaParts(p) {
+  const parts = [];
+  if (isVisible("note") && p.note) parts.push(p.note);
+  if (isVisible("district") && p.district) parts.push(p.district);
+  for (const c of state.columns) {
+    if (!isVisible(c.key)) continue;
+    const v = (p.extra || {})[c.key];
+    if (c.type === "checkbox") {
+      if (v === true) parts.push(c.label);
+    } else if (v !== undefined && v !== null && v !== "") {
+      parts.push(`${c.label}: ${v}`);
+    }
+  }
+  return parts;
+}
+
 function cardHtml(p) {
   const id = personId(p);
   const isFav = state.favorites.has(id);
-  const badge = p.status ? `<span class="badge ${p.status}">${p.status}</span>` : "";
-  const metaParts = [p.note, p.district].filter(Boolean);
-  const meta = metaParts.length ? `<div class="card-meta">${escapeHtml(metaParts.join(" · "))}</div>` : "";
-  const mapHref = p.googleMap ? escapeAttr(p.googleMap) : "#";
-  const mapDisabled = p.googleMap ? "" : "disabled";
-  const callBtn = p.phone
-    ? `<a class="call-btn" href="tel:${escapeAttr(p.phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
+  const badge = p.status && isVisible("status") && STATUSES.includes(p.status)
+    ? `<span class="badge ${p.status}">${p.status}</span>` : "";
+  const parts = metaParts(p);
+  const meta = parts.length ? `<div class="card-meta">${escapeHtml(parts.join(" · "))}</div>` : "";
+  const mapUrl = safeUrl(p.googleMap);
+  const mapHref = mapUrl ? escapeAttr(mapUrl) : "#";
+  const mapDisabled = mapUrl ? "" : "disabled";
+  const phone = isVisible("phone") && /^[0-9+() -]{1,20}$/.test(p.phone || "") ? p.phone : null;
+  const callBtn = phone
+    ? `<a class="call-btn" href="tel:${escapeAttr(phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
     : "";
 
   return `
@@ -327,6 +456,7 @@ function cardHtml(p) {
         ${meta}
       </div>
       <div class="card-actions">
+        <button class="edit-btn" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}">✏️</button>
         ${callBtn}
         <a class="map-btn ${mapDisabled}" href="${mapHref}" target="_blank" rel="noopener noreferrer" aria-label="เปิด Google Maps">📍</a>
       </div>
@@ -441,6 +571,207 @@ function attachSwipeToDelete() {
   });
 }
 
+// ---------- edit rows + manage columns ----------
+
+const PHONE_RE = /^[0-9+() -]{1,20}$/;
+
+function describeError(e) {
+  if (e.status === undefined) return "บันทึกไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
+  if (e.status === 401 || e.status === 403) return "ไม่มีสิทธิ์ทำรายการนี้ ลองเข้าสู่ระบบใหม่";
+  return `บันทึกไม่สำเร็จ: ${e.message}`;
+}
+
+function openEditor(p) {
+  const d = p || { nickname: "", googleMap: "", status: "", district: "", phone: "", note: "", extra: {} };
+  editingId = p ? p.id : null;
+  els.editTitle.textContent = p ? "แก้ไขรายชื่อ" : "เพิ่มรายชื่อ";
+  const custom = state.columns.map((c) => {
+    const v = (d.extra || {})[c.key];
+    const name = escapeAttr(c.key);
+    if (c.type === "checkbox") {
+      return `<label class="fld fld-check"><input type="checkbox" name="${name}" ${v === true ? "checked" : ""}> ${escapeHtml(c.label)}</label>`;
+    }
+    const type = c.type === "number" ? "number" : "text";
+    const step = c.type === "number" ? ' step="any"' : ' maxlength="200"';
+    const val = v === undefined || v === null ? "" : escapeAttr(v);
+    return `<label class="fld">${escapeHtml(c.label)}<input name="${name}" type="${type}"${step} value="${val}"></label>`;
+  }).join("");
+  const opts = ['<option value="">-</option>']
+    .concat(STATUSES.map((st) => `<option value="${st}" ${d.status === st ? "selected" : ""}>${st}</option>`)).join("");
+  els.editFields.innerHTML = `
+    <label class="fld">ชื่อเล่น *<input name="nickname" required maxlength="100" value="${escapeAttr(d.nickname)}"></label>
+    <label class="fld">ลิงก์ Google Maps<input name="google_map" type="url" inputmode="url" maxlength="1000" value="${escapeAttr(d.googleMap || "")}"></label>
+    <label class="fld">สถานะ<select name="status">${opts}</select></label>
+    <label class="fld">เขต<input name="district" maxlength="100" value="${escapeAttr(d.district || "")}"></label>
+    <label class="fld">เบอร์โทร<input name="phone" type="tel" inputmode="tel" maxlength="20" value="${escapeAttr(d.phone || "")}"></label>
+    <label class="fld">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
+    ${custom}`;
+  els.editDelete.hidden = !p;
+  els.editError.hidden = true;
+  els.editDialog.showModal();
+}
+
+function showEditError(msg) {
+  els.editError.textContent = msg;
+  els.editError.hidden = false;
+}
+
+async function saveEditor() {
+  const fd = new FormData(els.editForm);
+  const text = (k) => String(fd.get(k) || "").trim();
+  const body = {
+    nickname: text("nickname"),
+    google_map: text("google_map") || null,
+    status: text("status") || null,
+    district: text("district") || null,
+    phone: text("phone") || null,
+    note: text("note") || null,
+  };
+  if (!body.nickname) return showEditError("กรุณาใส่ชื่อเล่น");
+  if (body.google_map && !/^https?:\/\//i.test(body.google_map)) return showEditError("ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://");
+  if (body.phone && !PHONE_RE.test(body.phone)) return showEditError("เบอร์โทรใส่ได้เฉพาะตัวเลขและ + ( ) -");
+
+  const existing = editingId === null ? null : state.people.find((x) => x.id === editingId);
+  const extra = { ...((existing && existing.extra) || {}) };
+  for (const c of state.columns) {
+    if (c.type === "checkbox") {
+      if (fd.has(c.key)) extra[c.key] = true; else delete extra[c.key];
+      continue;
+    }
+    const v = text(c.key);
+    if (v === "") delete extra[c.key];
+    else extra[c.key] = c.type === "number" ? Number(v) : v;
+  }
+  body.extra = extra;
+
+  els.editSave.disabled = true;
+  try {
+    let row;
+    if (editingId === null) {
+      [row] = await api("POST", "ymd_places", body);
+      if (!row) throw new Error("ไม่มีสิทธิ์เพิ่มรายการ");
+      state.people.push(mapRow(row));
+    } else {
+      [row] = await api("PATCH", `ymd_places?id=eq.${editingId}`, body);
+      if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์แก้รายการนี้"), { status: 403 });
+      const i = state.people.findIndex((x) => x.id === editingId);
+      if (i >= 0) state.people[i] = mapRow(row);
+    }
+    sortPeople();
+    saveCache();
+    render();
+    els.editDialog.close();
+  } catch (e) {
+    showEditError(describeError(e));
+  } finally {
+    els.editSave.disabled = false;
+  }
+}
+
+async function deleteEditing() {
+  const p = state.people.find((x) => x.id === editingId);
+  if (!p || !window.confirm(`ลบ "${p.nickname}" ออกจากฐานข้อมูล? ย้อนกลับไม่ได้`)) return;
+  els.editDelete.disabled = true;
+  try {
+    const rows = await api("DELETE", `ymd_places?id=eq.${editingId}`);
+    if (!rows.length) throw Object.assign(new Error("ไม่มีสิทธิ์ลบรายการนี้"), { status: 403 });
+    state.people = state.people.filter((x) => x.id !== editingId);
+    state.favorites.delete(personId(p));
+    saveFavorites();
+    saveCache();
+    render();
+    els.editDialog.close();
+  } catch (e) {
+    showEditError(describeError(e));
+  } finally {
+    els.editDelete.disabled = false;
+  }
+}
+
+function renderCols() {
+  const row = (key, label, extraHtml) => `
+    <li class="col-row">
+      <label class="col-vis"><input type="checkbox" data-vis="${escapeAttr(key)}" ${isVisible(key) ? "checked" : ""}> ${escapeHtml(label)}</label>
+      ${extraHtml}
+    </li>`;
+  const builtin = BUILTIN_COLS.map((c) => row(c.key, c.label, '<span class="col-tag">มีอยู่แล้ว</span>'));
+  const custom = state.columns.map((c) => row(
+    c.key, c.label,
+    `<span class="col-tag">${{ text: "ข้อความ", number: "ตัวเลข", checkbox: "ติ๊กถูก" }[c.type]}</span>
+     <button type="button" class="col-del" data-col-del="${c.id}" aria-label="ลบคอลัมน์ ${escapeAttr(c.label)}">🗑️</button>`
+  ));
+  els.colsList.innerHTML = builtin.concat(custom).join("");
+}
+
+function openCols() {
+  els.colError.hidden = true;
+  renderCols();
+  els.colsDialog.showModal();
+}
+
+async function addColumn() {
+  const label = els.colLabel.value.trim();
+  if (!label) return;
+  if (state.columns.some((c) => c.label === label) || BUILTIN_COLS.some((c) => c.label === label)) {
+    els.colError.textContent = "มีคอลัมน์ชื่อนี้แล้ว";
+    els.colError.hidden = false;
+    return;
+  }
+  const key = "c_" + (Math.random().toString(36).slice(2) + "00000000").slice(0, 8);
+  try {
+    const [row] = await api("POST", "ymd_columns", { key, label, type: els.colType.value, sort: state.columns.length });
+    if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์"), { status: 403 });
+    state.columns.push(row);
+    els.colLabel.value = "";
+    els.colError.hidden = true;
+    saveCache();
+    renderCols();
+    render();
+  } catch (e) {
+    els.colError.textContent = describeError(e);
+    els.colError.hidden = false;
+  }
+}
+
+async function deleteColumn(id) {
+  const c = state.columns.find((x) => x.id === id);
+  if (!c || !window.confirm(`ลบคอลัมน์ "${c.label}"? ค่าที่กรอกไว้ในคอลัมน์นี้จะไม่แสดงอีก`)) return;
+  try {
+    const rows = await api("DELETE", `ymd_columns?id=eq.${id}`);
+    if (!rows.length) throw Object.assign(new Error("ไม่มีสิทธิ์"), { status: 403 });
+    state.columns = state.columns.filter((x) => x.id !== id);
+    delete state.visible[c.key];
+    localStorage.setItem(VIS_KEY, JSON.stringify(state.visible));
+    saveCache();
+    renderCols();
+    render();
+  } catch (e) {
+    els.colError.textContent = describeError(e);
+    els.colError.hidden = false;
+  }
+}
+
+function attachEditorEvents() {
+  els.addBtn.addEventListener("click", () => openEditor(null));
+  els.colsBtn.addEventListener("click", openCols);
+  els.editForm.addEventListener("submit", (e) => { e.preventDefault(); saveEditor(); });
+  els.editCancel.addEventListener("click", () => els.editDialog.close());
+  els.editDelete.addEventListener("click", deleteEditing);
+  els.colsClose.addEventListener("click", () => els.colsDialog.close());
+  els.colForm.addEventListener("submit", (e) => { e.preventDefault(); addColumn(); });
+  els.colsList.addEventListener("change", (e) => {
+    const key = e.target.dataset.vis;
+    if (!key) return;
+    state.visible[key] = e.target.checked;
+    localStorage.setItem(VIS_KEY, JSON.stringify(state.visible));
+    render();
+  });
+  els.colsList.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-col-del]");
+    if (b) deleteColumn(Number(b.dataset.colDel));
+  });
+}
+
 function setMainTab(tab) {
   state.mainTab = tab;
   document.querySelectorAll(".main-tab").forEach((btn) => {
@@ -505,6 +836,13 @@ function attachEvents() {
       toggleFavorite(li.dataset.id);
       return;
     }
+    const editBtn = e.target.closest('[data-action="edit"]');
+    if (editBtn) {
+      const li = editBtn.closest(".card");
+      const p = state.people.find((x) => personId(x) === li.dataset.id);
+      if (p) openEditor(p);
+      return;
+    }
     const delBtn = e.target.closest('[data-action="delete-note"]');
     if (delBtn) {
       const row = delBtn.closest(".swipe-row");
@@ -514,6 +852,7 @@ function attachEvents() {
   });
 
   attachSwipeToDelete();
+  attachEditorEvents();
 
   els.mainTabs.addEventListener("click", (e) => {
     const btn = e.target.closest(".main-tab");
@@ -548,8 +887,8 @@ async function init() {
       s = loadSession();
       if (s) {
         try {
-          const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-          if (cached && cached.length) return showApp(cached);
+          const c = readCache();
+          if (c) return showApp(c.people, c.columns || []);
         } catch { /* fall through */ }
       }
       return showLock("เชื่อมต่อไม่ได้ ลองรีเฟรชหน้าอีกครั้ง");

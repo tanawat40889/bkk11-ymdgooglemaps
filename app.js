@@ -85,6 +85,10 @@ const els = {
   noteText: document.getElementById("noteText"),
   notesList: document.getElementById("notesList"),
   notesEmpty: document.getElementById("notesEmpty"),
+  fab: document.getElementById("filterFab"),
+  fabDot: document.getElementById("fabDot"),
+  filterDialog: document.getElementById("filterDialog"),
+  filterClose: document.getElementById("filterClose"),
   addBtn: document.getElementById("addPlaceBtn"),
   colsBtn: document.getElementById("colsBtn"),
   editDialog: document.getElementById("editDialog"),
@@ -408,6 +412,7 @@ function render() {
   els.allList.innerHTML = rest.map(cardHtml).join("");
 
   els.emptyState.hidden = filtered.length !== 0;
+  els.fabDot.hidden = !(state.query || state.status !== "Active");
 }
 
 function safeUrl(u) {
@@ -751,6 +756,20 @@ async function deleteColumn(id) {
   }
 }
 
+function attachFilterEvents() {
+  els.fab.addEventListener("click", () => {
+    els.filterDialog.showModal();
+    els.search.focus();
+  });
+  els.filterClose.addEventListener("click", () => els.filterDialog.close());
+  els.filterDialog.addEventListener("click", (e) => {
+    if (e.target === els.filterDialog) els.filterDialog.close();
+  });
+  els.search.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") els.filterDialog.close();
+  });
+}
+
 function attachEditorEvents() {
   els.addBtn.addEventListener("click", () => openEditor(null));
   els.colsBtn.addEventListener("click", openCols);
@@ -779,8 +798,7 @@ function setMainTab(tab) {
   });
   const isYmd = tab === "ymd";
   els.ymdSection.hidden = !isYmd;
-  els.ymdControls.hidden = !isYmd;
-  els.statusFilters.hidden = !isYmd;
+  els.fab.hidden = !isYmd;
   els.notesSection.hidden = isYmd;
   if (!isYmd) renderNotes();
 }
@@ -853,6 +871,7 @@ function attachEvents() {
 
   attachSwipeToDelete();
   attachEditorEvents();
+  attachFilterEvents();
 
   els.mainTabs.addEventListener("click", (e) => {
     const btn = e.target.closest(".main-tab");

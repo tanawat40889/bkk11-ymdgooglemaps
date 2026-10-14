@@ -66,7 +66,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
-  padding-bottom: 40px;
+  padding-bottom: 96px;
 }
 
 .topbar {
@@ -691,4 +691,57 @@ main {
 
 .col-form .fld-input:first-child {
   flex: 1 1 140px;
+}
+
+/* ---------- floating filter ---------- */
+
+.fab {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.fab[hidden] {
+  display: none;
+}
+
+.fab-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 2px solid var(--bg);
+}
+
+.fab-dot[hidden] {
+  display: none;
+}
+
+.dlg-sheet {
+  margin: auto auto 0;
+  border-radius: 16px 16px 0 0;
+  width: min(100vw, 480px);
+  padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+.filters-wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.dlg-sheet .search-wrap {
+  margin-bottom: 12px;
 }

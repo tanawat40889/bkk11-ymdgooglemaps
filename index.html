@@ -44,16 +44,6 @@
     <button class="main-tab active" data-tab="ymd">🏠 รายชื่อ YMD</button>
     <button class="main-tab" data-tab="notes">📌 บันทึกของฉัน</button>
   </div>
-  <div class="search-wrap" id="ymdControls">
-    <input id="search" type="text" inputmode="search" placeholder="พิมพ์ชื่อเล่น..." autocomplete="off">
-    <button id="clearSearch" class="clear-btn" hidden aria-label="ล้างการค้นหา">✕</button>
-  </div>
-  <div class="filters" id="statusFilters">
-    <button class="chip active" data-status="Active">Active</button>
-    <button class="chip" data-status="Visiting">Visiting</button>
-    <button class="chip" data-status="Passive">Passive</button>
-    <button class="chip" data-status="all">ทั้งหมด</button>
-  </div>
 </header>
 
 <main>
@@ -118,6 +108,28 @@
   <p id="colError" class="dlg-error" role="alert" hidden></p>
   <div class="dlg-actions">
     <button type="button" id="colsClose" class="dlg-btn">ปิด</button>
+  </div>
+</dialog>
+
+<button type="button" id="filterFab" class="fab" aria-label="ค้นหาและกรอง">
+  <span class="fab-icon">🔎</span>
+  <span id="fabDot" class="fab-dot" hidden></span>
+</button>
+
+<dialog id="filterDialog" class="dlg dlg-sheet">
+  <h2 class="dlg-title">ค้นหาและกรอง</h2>
+  <div class="search-wrap" id="ymdControls">
+    <input id="search" type="text" inputmode="search" placeholder="พิมพ์ชื่อเล่น..." autocomplete="off">
+    <button id="clearSearch" class="clear-btn" hidden aria-label="ล้างการค้นหา">✕</button>
+  </div>
+  <div class="filters filters-wrap" id="statusFilters">
+    <button class="chip active" data-status="Active">Active</button>
+    <button class="chip" data-status="Visiting">Visiting</button>
+    <button class="chip" data-status="Passive">Passive</button>
+    <button class="chip" data-status="all">ทั้งหมด</button>
+  </div>
+  <div class="dlg-actions">
+    <button type="button" id="filterClose" class="dlg-btn dlg-primary">เสร็จ</button>
   </div>
 </dialog>
 

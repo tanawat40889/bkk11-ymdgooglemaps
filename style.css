@@ -745,3 +745,13 @@ main {
 .dlg-sheet .search-wrap {
   margin-bottom: 12px;
 }
+
+.card-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tokan-mark {
+  font-size: 11px;
+  color: var(--muted);
+}

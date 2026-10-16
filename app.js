@@ -2,6 +2,7 @@ const FAV_KEY = "ymd_favorites";
 const AUTH_KEY = "tokan_session_v1";
 const CACHE_KEY = "ymd_places_cache";
 const VIS_KEY = "ymd_visible_cols";
+const TOKAN_URL = "https://tanawat40889.github.io/bkk11-tokan/";
 const CUSTOM_KEY = "ymd_custom_places";
 const SEED_KEY = "ymd_custom_seeded_v1";
 const SEED_NAMES_KEY = "ymd_custom_seeded_names";
@@ -450,16 +451,21 @@ function cardHtml(p) {
     ? `<a class="call-btn" href="tel:${escapeAttr(phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
     : "";
 
-  return `
-    <li class="card" data-id="${escapeAttr(id)}">
-      <button class="star-btn ${isFav ? "on" : ""}" data-action="fav" aria-label="รายการโปรด">${isFav ? "★" : "☆"}</button>
-      <div class="card-main">
+  const mainInner = `
         <div class="card-name-row">
           <span class="card-name">${escapeHtml(p.nickname)}</span>
           ${badge}
+          ${p.mtCo ? '<span class="tokan-mark" aria-hidden="true">👤›</span>' : ""}
         </div>
-        ${meta}
-      </div>
+        ${meta}`;
+  const main = p.mtCo
+    ? `<a class="card-main card-link" href="${TOKAN_URL}?m=${encodeURIComponent(p.mtCo)}" target="_blank" rel="noopener" aria-label="เปิดข้อมูล ${escapeAttr(p.nickname)} ใน Tokan">${mainInner}</a>`
+    : `<div class="card-main">${mainInner}</div>`;
+
+  return `
+    <li class="card" data-id="${escapeAttr(id)}">
+      <button class="star-btn ${isFav ? "on" : ""}" data-action="fav" aria-label="รายการโปรด">${isFav ? "★" : "☆"}</button>
+      ${main}
       <div class="card-actions">
         <button class="edit-btn" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}">✏️</button>
         ${callBtn}

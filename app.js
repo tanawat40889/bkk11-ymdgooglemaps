@@ -57,6 +57,10 @@ const BUILTIN_COLS = [
 const STATUSES = ["Active", "Visiting", "Passive"];
 let currentSession = null;
 let editingId = null;
+let editLink = { mtCo: null, name: "" };
+let editLinkOrig = null;
+let linkTimer = null;
+let linkSeq = 0;
 
 const els = {
   search: document.getElementById("search"),
@@ -616,10 +620,101 @@ function openEditor(p) {
     <label class="fld">เขต<input name="district" maxlength="100" value="${escapeAttr(d.district || "")}"></label>
     <label class="fld">เบอร์โทร<input name="phone" type="tel" inputmode="tel" maxlength="20" value="${escapeAttr(d.phone || "")}"></label>
     <label class="fld">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
+    <div class="fld link-box">
+      ผูกกับสมาชิก Tokan
+      <div id="linkCurrent" class="link-current"></div>
+      <input id="linkSearch" type="search" placeholder="พิมพ์ชื่อหรือนามสกุลเพื่อค้นหาสมาชิก" autocomplete="off">
+      <ul id="linkResults" class="link-results"></ul>
+    </div>
     ${custom}`;
+  setupLinkPicker(p);
   els.editDelete.hidden = !p;
   els.editError.hidden = true;
   els.editDialog.showModal();
+}
+
+function memberLabel(m) {
+  return `${m.name_t || ""} ${m.saku_t || ""}`.trim();
+}
+
+function renderLinkCurrent() {
+  const box = els.editFields.querySelector("#linkCurrent");
+  if (!box) return;
+  if (editLink.mtCo) {
+    box.innerHTML = `<span>👤 ${escapeHtml(editLink.name || "รหัส " + editLink.mtCo)}</span> <button type="button" class="link-clear" data-link-clear>ยกเลิกการผูก</button>`;
+  } else {
+    box.textContent = "ยังไม่ผูกกับสมาชิก";
+  }
+}
+
+async function searchMembers(q) {
+  const tokens = q.split(/\s+/).map((t) => t.replace(/[*,()%\\]/g, "")).filter(Boolean).slice(0, 3);
+  if (!tokens.length) return [];
+  const conds = tokens.map((t) => {
+    const v = `*${encodeURIComponent(t)}*`;
+    return `or(name_t.ilike.${v},saku_t.ilike.${v})`;
+  });
+  return api("GET", `members?select=mt_co,name_t,saku_t,sh_nt,ch_nt,fa_nt&and=(${conds.join(",")})&order=name_t&limit=20`);
+}
+
+async function runMemberSearch(q, results) {
+  const seq = ++linkSeq;
+  results.innerHTML = '<li class="link-note">กำลังค้นหา...</li>';
+  try {
+    const rows = await searchMembers(q);
+    if (seq !== linkSeq) return;
+    results.innerHTML = rows.length
+      ? rows.map((m) => {
+        const taken = state.people.find((x) => x.mtCo === m.mt_co && x.id !== editingId);
+        const sub = [m.sh_nt, m.ch_nt, m.fa_nt].filter(Boolean).join(" · ") + (taken ? ` · ผูกกับ "${taken.nickname}" แล้ว` : "");
+        return `<li><button type="button" class="link-item" data-mt="${m.mt_co}" data-name="${escapeAttr(memberLabel(m))}"><b>${escapeHtml(memberLabel(m))}</b><small>${escapeHtml(sub)}</small></button></li>`;
+      }).join("")
+      : '<li class="link-note">ไม่พบสมาชิกที่ตรงกัน (หรืออยู่นอกขอบเขตสิทธิ์ของคุณ)</li>';
+  } catch (e) {
+    if (seq === linkSeq) {
+      results.innerHTML = `<li class="link-note">${e.status === undefined ? "ค้นหาไม่ได้ ตรวจสอบอินเทอร์เน็ต" : "ค้นหาไม่สำเร็จ ลองเข้าสู่ระบบใหม่"}</li>`;
+    }
+  }
+}
+
+function setupLinkPicker(p) {
+  editLink = { mtCo: p ? p.mtCo : null, name: "" };
+  editLinkOrig = p ? p.mtCo : null;
+  renderLinkCurrent();
+  const search = els.editFields.querySelector("#linkSearch");
+  const results = els.editFields.querySelector("#linkResults");
+  search.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+  search.addEventListener("input", () => {
+    clearTimeout(linkTimer);
+    const q = search.value.trim();
+    if (!q) { linkSeq++; results.innerHTML = ""; return; }
+    linkTimer = setTimeout(() => runMemberSearch(q, results), 300);
+  });
+  els.editFields.querySelector("#linkCurrent").addEventListener("click", (e) => {
+    if (e.target.closest("[data-link-clear]")) {
+      editLink = { mtCo: null, name: "" };
+      renderLinkCurrent();
+    }
+  });
+  results.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mt]");
+    if (!b) return;
+    editLink = { mtCo: Number(b.dataset.mt), name: b.dataset.name };
+    results.innerHTML = "";
+    search.value = "";
+    renderLinkCurrent();
+  });
+  if (p && p.mtCo) {
+    const code = p.mtCo;
+    api("GET", `members?select=name_t,saku_t&mt_co=eq.${encodeURIComponent(code)}`)
+      .then(([m]) => {
+        if (m && editLink.mtCo === code) {
+          editLink.name = memberLabel(m);
+          renderLinkCurrent();
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 function showEditError(msg) {
@@ -654,6 +749,8 @@ async function saveEditor() {
     else extra[c.key] = c.type === "number" ? Number(v) : v;
   }
   body.extra = extra;
+  const linkChanged = (editLink.mtCo ?? null) !== (editLinkOrig ?? null);
+  if (linkChanged) body.mt_co = editLink.mtCo ?? null;
 
   els.editSave.disabled = true;
   try {
@@ -673,7 +770,11 @@ async function saveEditor() {
     render();
     els.editDialog.close();
   } catch (e) {
-    showEditError(describeError(e));
+    showEditError(
+      linkChanged && (e.status === 403 || e.status === 401)
+        ? "ผูกสมาชิกไม่สำเร็จ: ฐานข้อมูลยังไม่เปิดสิทธิ์ผูกสมาชิก (ต้องรัน db/link-members.sql) หรือสมาชิกอยู่นอกขอบเขตสิทธิ์ของคุณ"
+        : describeError(e)
+    );
   } finally {
     els.editSave.disabled = false;
   }

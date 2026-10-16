@@ -410,7 +410,8 @@ main {
   color: var(--active);
 }
 
-.map-btn.disabled {
+.map-btn.disabled,
+.call-btn.disabled {
   background: var(--map-disabled-bg);
   color: var(--map-disabled-text);
   pointer-events: none;

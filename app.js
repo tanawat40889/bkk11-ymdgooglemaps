@@ -448,12 +448,13 @@ function cardHtml(p) {
   const parts = metaParts(p);
   const meta = parts.length ? `<div class="card-meta">${escapeHtml(parts.join(" · "))}</div>` : "";
   const mapUrl = safeUrl(p.googleMap);
-  const mapHref = mapUrl ? escapeAttr(mapUrl) : "#";
-  const mapDisabled = mapUrl ? "" : "disabled";
+  const mapBtn = mapUrl
+    ? `<a class="map-btn" href="${escapeAttr(mapUrl)}" target="_blank" rel="noopener noreferrer" aria-label="เปิด Google Maps">📍</a>`
+    : '<span class="map-btn disabled" role="link" aria-disabled="true" aria-label="ไม่มีลิงก์ Google Maps">📍</span>';
   const phone = isVisible("phone") && /^[0-9+() -]{1,20}$/.test(p.phone || "") ? p.phone : null;
   const callBtn = phone
     ? `<a class="call-btn" href="tel:${escapeAttr(phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
-    : "";
+    : '<span class="call-btn disabled" role="link" aria-disabled="true" aria-label="ไม่มีเบอร์โทร">📞</span>';
 
   const mainInner = `
         <div class="card-name-row">
@@ -473,7 +474,7 @@ function cardHtml(p) {
       <div class="card-actions">
         <button class="edit-btn" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}">✏️</button>
         ${callBtn}
-        <a class="map-btn ${mapDisabled}" href="${mapHref}" target="_blank" rel="noopener noreferrer" aria-label="เปิด Google Maps">📍</a>
+        ${mapBtn}
       </div>
     </li>
   `;

@@ -243,7 +243,7 @@ function mapRow(r) {
     nickname: r.nickname,
     googleMap: r.google_map,
     status: r.status,
-    district: r.district,
+    khet: r.members ? r.members.sh_nt : null,
     phone: r.phone,
     note: r.note,
     extra: r.extra || {},
@@ -278,7 +278,7 @@ async function api(method, path, body, retried = false) {
 
 async function fetchAll() {
   const [rows, cols] = await Promise.all([
-    api("GET", "ymd_places?select=*&order=nickname"),
+    api("GET", "ymd_places?select=*,members(sh_nt)&order=nickname"),
     api("GET", "ymd_columns?select=*&order=sort,id"),
   ]);
   return { people: rows.map(mapRow), columns: cols };
@@ -390,7 +390,7 @@ function normalize(s) {
 function matchesQuery(p, q) {
   if (!q) return true;
   const extraText = Object.values(p.extra || {}).filter((v) => typeof v === "string").join(" ");
-  const hay = normalize(p.nickname + " " + (p.note || "") + " " + (p.district || "") + " " + extraText);
+  const hay = normalize(p.nickname + " " + (p.note || "") + " " + (p.khet || "") + " " + extraText);
   return hay.includes(q);
 }
 
@@ -427,7 +427,7 @@ function safeUrl(u) {
 function metaParts(p) {
   const parts = [];
   if (isVisible("note") && p.note) parts.push(p.note);
-  if (isVisible("district") && p.district) parts.push(p.district);
+  if (isVisible("district") && p.khet) parts.push(p.khet);
   for (const c of state.columns) {
     if (!isVisible(c.key)) continue;
     const v = (p.extra || {})[c.key];
@@ -597,7 +597,7 @@ function describeError(e) {
 }
 
 function openEditor(p) {
-  const d = p || { nickname: "", googleMap: "", status: "", district: "", phone: "", note: "", extra: {} };
+  const d = p || { nickname: "", googleMap: "", status: "", phone: "", note: "", extra: {} };
   editingId = p ? p.id : null;
   els.editTitle.textContent = p ? "แก้ไขรายชื่อ" : "เพิ่มรายชื่อ";
   const custom = state.columns.map((c) => {
@@ -617,7 +617,6 @@ function openEditor(p) {
     <label class="fld">ชื่อเล่น *<input name="nickname" required maxlength="100" value="${escapeAttr(d.nickname)}"></label>
     <label class="fld">ลิงก์ Google Maps<input name="google_map" type="url" inputmode="url" maxlength="1000" value="${escapeAttr(d.googleMap || "")}"></label>
     <label class="fld">สถานะ<select name="status">${opts}</select></label>
-    <label class="fld">เขต<input name="district" maxlength="100" value="${escapeAttr(d.district || "")}"></label>
     <label class="fld">เบอร์โทร<input name="phone" type="tel" inputmode="tel" maxlength="20" value="${escapeAttr(d.phone || "")}"></label>
     <label class="fld">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
     <div class="fld link-box">
@@ -729,7 +728,6 @@ async function saveEditor() {
     nickname: text("nickname"),
     google_map: text("google_map") || null,
     status: text("status") || null,
-    district: text("district") || null,
     phone: text("phone") || null,
     note: text("note") || null,
   };
@@ -756,11 +754,11 @@ async function saveEditor() {
   try {
     let row;
     if (editingId === null) {
-      [row] = await api("POST", "ymd_places", body);
+      [row] = await api("POST", "ymd_places?select=*,members(sh_nt)", body);
       if (!row) throw new Error("ไม่มีสิทธิ์เพิ่มรายการ");
       state.people.push(mapRow(row));
     } else {
-      [row] = await api("PATCH", `ymd_places?id=eq.${editingId}`, body);
+      [row] = await api("PATCH", `ymd_places?id=eq.${editingId}&select=*,members(sh_nt)`, body);
       if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์แก้รายการนี้"), { status: 403 });
       const i = state.people.findIndex((x) => x.id === editingId);
       if (i >= 0) state.people[i] = mapRow(row);

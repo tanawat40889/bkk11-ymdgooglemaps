@@ -617,6 +617,10 @@ function openEditor(p) {
   els.editFields.innerHTML = `
     <label class="fld">ชื่อเล่น *<input name="nickname" required maxlength="100" value="${escapeAttr(d.nickname)}"></label>
     <label class="fld">ลิงก์ Google Maps<input name="google_map" type="url" inputmode="url" maxlength="1000" value="${escapeAttr(d.googleMap || "")}"></label>
+    <div class="loc-row">
+      <button type="button" id="useLocBtn" class="loc-btn">📍 ใช้ตำแหน่งปัจจุบันของฉัน</button>
+      <small id="locHint" class="loc-hint">ยืนอยู่หน้าบ้านน้อง แล้วกดปุ่มนี้เพื่อใส่ลิงก์ Google Maps ให้อัตโนมัติ</small>
+    </div>
     <label class="fld">สถานะ<select name="status">${opts}</select></label>
     <label class="fld">เบอร์โทร<input name="phone" type="tel" inputmode="tel" maxlength="20" value="${escapeAttr(d.phone || "")}"></label>
     <label class="fld">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
@@ -628,9 +632,43 @@ function openEditor(p) {
     </div>
     ${custom}`;
   setupLinkPicker(p);
+  els.editFields.querySelector("#useLocBtn").addEventListener("click", useCurrentLocation);
   els.editDelete.hidden = !p;
   els.editError.hidden = true;
   els.editDialog.showModal();
+}
+
+function useCurrentLocation() {
+  const btn = els.editFields.querySelector("#useLocBtn");
+  const hint = els.editFields.querySelector("#locHint");
+  const input = els.editForm.elements["google_map"];
+  if (!navigator.geolocation) {
+    hint.textContent = "เครื่องหรือเบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง";
+    return;
+  }
+  if (input.value.trim() && !window.confirm("แทนที่ลิงก์เดิมด้วยตำแหน่งปัจจุบัน?")) return;
+  btn.disabled = true;
+  hint.textContent = "กำลังหาตำแหน่ง... (กดอนุญาตถ้าเบราว์เซอร์ถาม)";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      input.value = `https://www.google.com/maps?q=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+      const m = Math.round(accuracy);
+      hint.textContent = m > 100
+        ? `ได้ตำแหน่งแล้ว แต่แม่นยำต่ำ (ประมาณ ${m} ม.) ลองไปที่โล่งแล้วกดอีกครั้ง หรือกด "บันทึก" เพื่อเก็บ`
+        : `ได้ตำแหน่งแล้ว (แม่นยำประมาณ ${m} ม.) กด "บันทึก" เพื่อเก็บ`;
+      btn.disabled = false;
+    },
+    (err) => {
+      hint.textContent = err.code === 1
+        ? "ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์/แอปนี้ในการตั้งค่าเครื่อง"
+        : err.code === 3
+          ? "หาตำแหน่งไม่ทันเวลา ลองอีกครั้งในที่โล่ง"
+          : "หาตำแหน่งไม่ได้ ลองอีกครั้ง";
+      btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
 }
 
 function memberLabel(m) {

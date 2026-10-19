@@ -815,3 +815,31 @@ main {
   color: var(--muted);
   padding: 4px 2px;
 }
+
+.loc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.loc-btn {
+  align-self: flex-start;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--search-bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.loc-btn:disabled {
+  opacity: 0.6;
+}
+
+.loc-hint {
+  font-size: 12px;
+  color: var(--muted);
+}

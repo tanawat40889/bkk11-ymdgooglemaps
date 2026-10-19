@@ -420,45 +420,6 @@ function render() {
   els.fabDot.hidden = !(state.query || state.status !== "Active");
 }
 
-function vcardEscape(s) {
-  return String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-}
-
-function buildVcard(p) {
-  const lines = [
-    "BEGIN:VCARD",
-    "VERSION:3.0",
-    `N:${vcardEscape(p.nickname)};;;;`,
-    `FN:${vcardEscape(p.nickname)}`,
-    `TEL;TYPE=CELL:${p.phone}`,
-  ];
-  if (p.note) lines.push(`NOTE:${vcardEscape(p.note)}`);
-  lines.push("END:VCARD");
-  return lines.join("\r\n") + "\r\n";
-}
-
-async function saveContact(p) {
-  const text = buildVcard(p);
-  const fname = (p.nickname.replace(/[\\/:*?"<>|]/g, "").trim() || "contact") + ".vcf";
-  const file = new File([text], fname, { type: "text/vcard" });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: p.nickname });
-      return;
-    } catch (e) {
-      if (e.name === "AbortError") return;
-    }
-  }
-  const url = URL.createObjectURL(new Blob([text], { type: "text/vcard" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fname;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
 function safeUrl(u) {
   return /^https?:\/\//i.test(u || "") ? u : null;
 }
@@ -495,10 +456,6 @@ function cardHtml(p) {
     ? `<a class="call-btn" href="tel:${escapeAttr(phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
     : '<span class="call-btn disabled" role="link" aria-disabled="true" aria-label="ไม่มีเบอร์โทร">📞</span>';
 
-  const contactBtn = phone
-    ? `<button class="contact-btn" data-action="save-contact" aria-label="บันทึกเบอร์ ${escapeAttr(p.nickname)} ลงรายชื่อมือถือ">💾</button>`
-    : '<span class="contact-btn disabled" role="button" aria-disabled="true" aria-label="ไม่มีเบอร์โทร">💾</span>';
-
   const mainInner = `
         <div class="card-name-row">
           <span class="card-name">${escapeHtml(p.nickname)}</span>
@@ -514,10 +471,9 @@ function cardHtml(p) {
     <li class="card" data-id="${escapeAttr(id)}">
       <button class="star-btn ${isFav ? "on" : ""}" data-action="fav" aria-label="รายการโปรด">${isFav ? "★" : "☆"}</button>
       ${main}
-      <div class="card-actions ymd-actions">
+      <div class="card-actions">
         <button class="edit-btn" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}">✏️</button>
         ${callBtn}
-        ${contactBtn}
         ${mapBtn}
       </div>
     </li>
@@ -1040,13 +996,6 @@ function attachEvents() {
     if (favBtn) {
       const li = favBtn.closest(".card");
       toggleFavorite(li.dataset.id);
-      return;
-    }
-    const contactBtn = e.target.closest('[data-action="save-contact"]');
-    if (contactBtn) {
-      const li = contactBtn.closest(".card");
-      const p = state.people.find((x) => personId(x) === li.dataset.id);
-      if (p && /^[0-9+() -]{1,20}$/.test(p.phone || "")) saveContact(p);
       return;
     }
     const editBtn = e.target.closest('[data-action="edit"]');

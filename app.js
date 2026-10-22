@@ -446,7 +446,7 @@ function cardHtml(p) {
   const badge = p.status && isVisible("status") && STATUSES.includes(p.status)
     ? `<span class="badge ${p.status}">${p.status}</span>` : "";
   const parts = metaParts(p);
-  const meta = parts.length ? `<div class="card-meta">${escapeHtml(parts.join(" · "))}</div>` : "";
+  const meta = parts.length ? `<span class="card-meta">${escapeHtml(parts.join(" · "))}</span>` : "";
   const mapUrl = safeUrl(p.googleMap);
   const mapBtn = mapUrl
     ? `<a class="map-btn" href="${escapeAttr(mapUrl)}" target="_blank" rel="noopener noreferrer" aria-label="เปิด Google Maps">📍</a>`
@@ -458,11 +458,10 @@ function cardHtml(p) {
 
   const mainInner = `
         <div class="card-name-row">
-          <span class="card-name">${escapeHtml(p.nickname)}</span>
-          ${badge}
+          <span class="card-name" title="${escapeAttr(p.nickname)}">${escapeHtml(p.nickname)}</span>
           ${p.mtCo ? '<span class="tokan-mark" aria-hidden="true">👤›</span>' : ""}
         </div>
-        ${meta}`;
+        <div class="card-sub">${badge}${meta}</div>`;
   const main = p.mtCo
     ? `<a class="card-main card-link" href="${TOKAN_URL}?m=${encodeURIComponent(p.mtCo)}" target="_blank" rel="noopener" aria-label="เปิดข้อมูล ${escapeAttr(p.nickname)} ใน Tokan">${mainInner}</a>`
     : `<div class="card-main">${mainInner}</div>`;
@@ -486,7 +485,7 @@ function renderNotes() {
 }
 
 function noteCardHtml(p) {
-  const meta = p.note ? `<div class="card-meta">${escapeHtml(p.note)}</div>` : "";
+  const meta = p.note ? `<span class="card-meta">${escapeHtml(p.note)}</span>` : "";
   return `
     <li class="swipe-row" data-note-id="${escapeAttr(p.id)}">
       <div class="swipe-reveal">
@@ -495,9 +494,9 @@ function noteCardHtml(p) {
       <div class="card swipe-fg">
         <div class="card-main">
           <div class="card-name-row">
-            <span class="card-name">${escapeHtml(p.name)}</span>
+            <span class="card-name" title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</span>
           </div>
-          ${meta}
+          <div class="card-sub">${meta}</div>
         </div>
         <div class="card-actions">
           <a class="map-btn" href="${escapeAttr(p.googleMap)}" target="_blank" rel="noopener noreferrer" aria-label="เปิด Google Maps">📍</a>
@@ -615,15 +614,15 @@ function openEditor(p) {
   const opts = ['<option value="">-</option>']
     .concat(STATUSES.map((st) => `<option value="${st}" ${d.status === st ? "selected" : ""}>${st}</option>`)).join("");
   els.editFields.innerHTML = `
-    <label class="fld">ชื่อเล่น *<input name="nickname" required maxlength="100" value="${escapeAttr(d.nickname)}"></label>
-    <label class="fld">ลิงก์ Google Maps<input name="google_map" type="url" inputmode="url" maxlength="1000" value="${escapeAttr(d.googleMap || "")}"></label>
+    <label class="fld fld-wide">ชื่อเล่น *<input name="nickname" required maxlength="100" value="${escapeAttr(d.nickname)}"></label>
+    <label class="fld fld-wide">ลิงก์ Google Maps<input name="google_map" type="url" inputmode="url" maxlength="1000" value="${escapeAttr(d.googleMap || "")}"></label>
     <div class="loc-row">
       <button type="button" id="useLocBtn" class="loc-btn">📍 ใช้ตำแหน่งปัจจุบันของฉัน</button>
       <small id="locHint" class="loc-hint">ยืนอยู่หน้าบ้านน้อง แล้วกดปุ่มนี้เพื่อใส่ลิงก์ Google Maps ให้อัตโนมัติ</small>
     </div>
     <label class="fld">สถานะ<select name="status">${opts}</select></label>
     <label class="fld">เบอร์โทร<input name="phone" type="tel" inputmode="tel" maxlength="20" value="${escapeAttr(d.phone || "")}"></label>
-    <label class="fld">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
+    <label class="fld fld-wide">โน้ต<input name="note" maxlength="500" value="${escapeAttr(d.note || "")}"></label>
     <div class="fld link-box">
       ผูกกับสมาชิก Tokan
       <div id="linkCurrent" class="link-current"></div>

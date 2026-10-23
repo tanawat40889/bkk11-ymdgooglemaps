@@ -243,7 +243,7 @@ function mapRow(r) {
     nickname: r.nickname,
     googleMap: r.google_map,
     status: r.status,
-    khet: r.members ? r.members.sh_nt : null,
+    khet: r.tokan ? r.tokan.sh_nt : null,
     phone: r.phone,
     note: r.note,
     extra: r.extra || {},
@@ -278,8 +278,8 @@ async function api(method, path, body, retried = false) {
 
 async function fetchAll() {
   const [rows, cols] = await Promise.all([
-    api("GET", "ymd_places?select=*,members(sh_nt)&order=nickname"),
-    api("GET", "ymd_columns?select=*&order=sort,id"),
+    api("GET", "bkk11_contacts?select=*,tokan(sh_nt)&order=nickname"),
+    api("GET", "bkk11_contact_columns?select=*&order=sort,id"),
   ]);
   return { people: rows.map(mapRow), columns: cols };
 }
@@ -691,7 +691,7 @@ async function searchMembers(q) {
     const v = `*${encodeURIComponent(t)}*`;
     return `or(name_t.ilike.${v},saku_t.ilike.${v})`;
   });
-  return api("GET", `members?select=mt_co,name_t,saku_t,sh_nt,ch_nt,fa_nt&and=(${conds.join(",")})&order=name_t&limit=20`);
+  return api("GET", `tokan?select=mt_co,name_t,saku_t,sh_nt,ch_nt,fa_nt&and=(${conds.join(",")})&order=name_t&limit=20`);
 }
 
 async function runMemberSearch(q, results) {
@@ -743,7 +743,7 @@ function setupLinkPicker(p) {
   });
   if (p && p.mtCo) {
     const code = p.mtCo;
-    api("GET", `members?select=name_t,saku_t&mt_co=eq.${encodeURIComponent(code)}`)
+    api("GET", `tokan?select=name_t,saku_t&mt_co=eq.${encodeURIComponent(code)}`)
       .then(([m]) => {
         if (m && editLink.mtCo === code) {
           editLink.name = memberLabel(m);
@@ -792,11 +792,11 @@ async function saveEditor() {
   try {
     let row;
     if (editingId === null) {
-      [row] = await api("POST", "ymd_places?select=*,members(sh_nt)", body);
+      [row] = await api("POST", "bkk11_contacts?select=*,tokan(sh_nt)", body);
       if (!row) throw new Error("ไม่มีสิทธิ์เพิ่มรายการ");
       state.people.push(mapRow(row));
     } else {
-      [row] = await api("PATCH", `ymd_places?id=eq.${editingId}&select=*,members(sh_nt)`, body);
+      [row] = await api("PATCH", `bkk11_contacts?id=eq.${editingId}&select=*,tokan(sh_nt)`, body);
       if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์แก้รายการนี้"), { status: 403 });
       const i = state.people.findIndex((x) => x.id === editingId);
       if (i >= 0) state.people[i] = mapRow(row);
@@ -821,7 +821,7 @@ async function deleteEditing() {
   if (!p || !window.confirm(`ลบ "${p.nickname}" ออกจากฐานข้อมูล? ย้อนกลับไม่ได้`)) return;
   els.editDelete.disabled = true;
   try {
-    const rows = await api("DELETE", `ymd_places?id=eq.${editingId}`);
+    const rows = await api("DELETE", `bkk11_contacts?id=eq.${editingId}`);
     if (!rows.length) throw Object.assign(new Error("ไม่มีสิทธิ์ลบรายการนี้"), { status: 403 });
     state.people = state.people.filter((x) => x.id !== editingId);
     state.favorites.delete(personId(p));
@@ -867,7 +867,7 @@ async function addColumn() {
   }
   const key = "c_" + (Math.random().toString(36).slice(2) + "00000000").slice(0, 8);
   try {
-    const [row] = await api("POST", "ymd_columns", { key, label, type: els.colType.value, sort: state.columns.length });
+    const [row] = await api("POST", "bkk11_contact_columns", { key, label, type: els.colType.value, sort: state.columns.length });
     if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์"), { status: 403 });
     state.columns.push(row);
     els.colLabel.value = "";
@@ -885,7 +885,7 @@ async function deleteColumn(id) {
   const c = state.columns.find((x) => x.id === id);
   if (!c || !window.confirm(`ลบคอลัมน์ "${c.label}"? ค่าที่กรอกไว้ในคอลัมน์นี้จะไม่แสดงอีก`)) return;
   try {
-    const rows = await api("DELETE", `ymd_columns?id=eq.${id}`);
+    const rows = await api("DELETE", `bkk11_contact_columns?id=eq.${id}`);
     if (!rows.length) throw Object.assign(new Error("ไม่มีสิทธิ์"), { status: 403 });
     state.columns = state.columns.filter((x) => x.id !== id);
     delete state.visible[c.key];

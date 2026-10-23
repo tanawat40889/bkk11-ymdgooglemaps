@@ -1,4 +1,4 @@
-const CACHE = "ymd-maps-v19";
+const CACHE = "ymd-maps-v20";
 const ASSETS = [
   "./",
   "./index.html",

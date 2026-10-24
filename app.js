@@ -302,11 +302,13 @@ function showApp(people, columns) {
   els.lockScreen.hidden = true;
   els.app.hidden = false;
   render();
+  BKKLoader.hide();
 }
 
 function showLock(msg = "") {
   els.app.hidden = true;
   els.lockScreen.hidden = false;
+  BKKLoader.hide();
   els.lockCode.value = "";
   els.lockError.textContent = msg;
   els.lockError.hidden = !msg;
@@ -330,6 +332,7 @@ function readCache() {
 }
 
 async function start(s) {
+  BKKLoader.show("กำลังโหลดข้อมูลสถานที่…");
   currentSession = s;
   let data;
   try {
@@ -356,6 +359,7 @@ function attachLockEvents() {
     e.preventDefault();
     els.lockSubmit.disabled = true;
     els.lockError.hidden = true;
+    BKKLoader.show("กำลังเข้าสู่ระบบ…");
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/login`, {
         method: "POST",

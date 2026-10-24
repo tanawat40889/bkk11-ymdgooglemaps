@@ -1,12 +1,14 @@
-const CACHE = "ymd-maps-v21";
+const CACHE = "ymd-maps-v22";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./loader.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/bkk11-logo.png",
 ];
 
 self.addEventListener("install", (e) => {

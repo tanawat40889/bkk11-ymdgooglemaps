@@ -336,6 +336,19 @@ async function start(s) {
   currentSession = s;
   let data;
   try {
+    // Who may use แผนที่ is decided by the owner (public.access_my); the database enforces it too, this only explains it
+    let mine = null;
+    try {
+      mine = await api("POST", "rpc/access_my", {});
+    } catch (e) {
+      if (e.status === undefined || e.status === 401) throw e;   // offline / expired: handled below; anything else: let the database decide
+    }
+    if (mine && !(mine.owner || (Array.isArray(mine.features) && mine.features.includes("maps")))) {
+      localStorage.removeItem(CACHE_KEY);   // no stale copy of the contact book either
+      state.people = [];
+      state.columns = [];
+      return showLock("บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้แผนที่ กรุณาติดต่อผู้ดูแลระบบ");
+    }
     data = await fetchAll();
   } catch (e) {
     if (e.status === undefined) {

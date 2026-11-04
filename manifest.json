@@ -1,6 +1,6 @@
 {
-  "name": "BKK11 - YMD ค้นหาบ้าน",
-  "short_name": "YMD Maps",
+  "name": "YMD DB",
+  "short_name": "YMD DB",
   "description": "ค้นหาและเปิด Google Maps บ้านน้อง ๆ YMD พร้อมรายการโปรด",
   "start_url": "./index.html",
   "scope": "./",

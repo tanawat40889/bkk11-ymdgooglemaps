@@ -89,11 +89,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
 }
 
 .topbar h1 {
+  white-space: nowrap;
   margin: 0;
   font-size: 18px;
 }
@@ -241,8 +241,9 @@ body {
 
 .main-tabs {
   display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 4px;
+  flex: 0 1 auto;
+  margin-left: auto;
   background: var(--search-bg);
   border-radius: 10px;
   padding: 4px;
@@ -255,8 +256,9 @@ body {
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 10px;
+  padding: 6px 12px;
   border-radius: 8px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -391,15 +393,36 @@ main {
 }
 
 .badge {
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
   border-radius: 999px;
   color: #fff;
 }
 
 .badge.Active { background: var(--active); }
 .badge.Visiting { background: var(--visiting); }
-.badge.Passive { background: var(--passive); }
+.badge.Passive {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1.5px var(--star-off);
+  font-weight: 600;
+}
+
+.card.st-Active::before,
+.card.st-Visiting::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+}
+.card.st-Active::before { background: var(--active); }
+.card.st-Visiting::before { background: var(--visiting); }
+.card.st-Passive .card-main,
+.card.st-Passive .card-actions { opacity: .5; }
 
 .card-meta {
   font-size: 13px;
@@ -505,6 +528,58 @@ main {
   display: flex;
   justify-content: flex-end;
   align-items: stretch;
+}
+
+.swipe-reveal {
+  visibility: hidden;
+  transition: visibility 0s .2s;
+}
+
+.swipe-row.open .swipe-reveal,
+.swipe-row.dragging .swipe-reveal {
+  visibility: visible;
+  transition: none;
+}
+
+.swipe-actions {
+  display: flex;
+  align-items: stretch;
+}
+
+.swipe-actions-del {
+  width: 72px;
+}
+
+.swipe-act {
+  width: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.swipe-act .act-ic {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.act-fav { background: var(--star); }
+.act-fav.on { background: #b45309; }
+.act-edit { background: var(--accent); }
+.act-tokan { background: #7c3aed; }
+.act-tokan.disabled {
+  background: var(--map-disabled-bg);
+  color: var(--map-disabled-text);
+  cursor: default;
 }
 
 .swipe-delete-btn {
@@ -912,8 +987,8 @@ a,
 
   .main-tabs {
     order: 1;
-    flex: 0 1 420px;
-    margin-bottom: 0;
+    flex: 0 1 320px;
+    margin-left: 0;
   }
 
   .lock-toggle {

@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cqdzfsucpivsgznfpjxl.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>BKK11 - YMD | ค้นหาบ้าน</title>
+<title>YMD DB</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2563eb">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="YMD Maps">
+<meta name="apple-mobile-web-app-title" content="YMD DB">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -32,7 +32,7 @@
 <div id="lockScreen" class="lock-screen">
   <form id="lockForm" class="lock-card" autocomplete="off">
     <div class="lock-icon">📍</div>
-    <h1 class="lock-title">YMD Maps</h1>
+    <h1 class="lock-title">YMD DB</h1>
     <p class="lock-sub">เข้าสู่ระบบด้วยบัญชีเดียวกับโทกังรวมภาค</p>
     <label class="lock-label">Username
       <input id="lockName" class="lock-input" type="text" required maxlength="100" autocomplete="off" autofocus>
@@ -48,12 +48,12 @@
 <div id="app" hidden>
 <header class="topbar">
   <div class="topbar-title-row">
-    <h1>🗺️ YMD ค้นหาบ้าน</h1>
+    <h1>YMD DB</h1>
+    <div class="main-tabs" id="mainTabs" role="group" aria-label="สลับมุมมอง">
+      <button class="main-tab active" data-tab="ymd">รายชื่อ YMD</button>
+      <button class="main-tab" data-tab="notes">บันทึก</button>
+    </div>
     <button id="lockBtn" class="lock-toggle" aria-label="ออกจากระบบ" title="ออกจากระบบ">🔒</button>
-  </div>
-  <div class="main-tabs" id="mainTabs">
-    <button class="main-tab active" data-tab="ymd">🏠 รายชื่อ YMD</button>
-    <button class="main-tab" data-tab="notes">📌 บันทึกของฉัน</button>
   </div>
 </header>
 

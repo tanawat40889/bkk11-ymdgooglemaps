@@ -460,8 +460,9 @@ function metaParts(p) {
 function cardHtml(p) {
   const id = personId(p);
   const isFav = state.favorites.has(id);
-  const badge = p.status && isVisible("status") && STATUSES.includes(p.status)
-    ? `<span class="badge ${p.status}">${p.status}</span>` : "";
+  const known = p.status && isVisible("status") && STATUSES.includes(p.status);
+  const badge = known
+    ? `<span class="badge ${p.status}">${p.status === "Active" ? "● " : ""}${p.status}</span>` : "";
   const parts = metaParts(p);
   const meta = parts.length ? `<span class="card-meta">${escapeHtml(parts.join(" · "))}</span>` : "";
   const mapUrl = safeUrl(p.googleMap);
@@ -472,25 +473,31 @@ function cardHtml(p) {
   const callBtn = phone
     ? `<a class="call-btn" href="tel:${escapeAttr(phone)}" aria-label="โทร ${escapeAttr(p.nickname)}">📞</a>`
     : '<span class="call-btn disabled" role="link" aria-disabled="true" aria-label="ไม่มีเบอร์โทร">📞</span>';
-
-  const mainInner = `
-        <div class="card-name-row">
-          <span class="card-name" title="${escapeAttr(p.nickname)}">${escapeHtml(p.nickname)}</span>
-          ${p.mtCo ? '<span class="tokan-mark" aria-hidden="true">👤›</span>' : ""}
-        </div>
-        <div class="card-sub">${badge}${meta}</div>`;
-  const main = p.mtCo
-    ? `<a class="card-main card-link" href="${TOKAN_URL}?m=${encodeURIComponent(p.mtCo)}" target="_blank" rel="noopener" aria-label="เปิดข้อมูล ${escapeAttr(p.nickname)} ใน Tokan">${mainInner}</a>`
-    : `<div class="card-main">${mainInner}</div>`;
+  const tokanBtn = p.mtCo
+    ? `<a class="swipe-act act-tokan" href="${TOKAN_URL}?m=${encodeURIComponent(p.mtCo)}" target="_blank" rel="noopener" aria-label="เปิดข้อมูล ${escapeAttr(p.nickname)} ใน Tokan"><span class="act-ic">👤</span>โทกัง</a>`
+    : '<span class="swipe-act act-tokan disabled" aria-disabled="true"><span class="act-ic">👤</span>โทกัง</span>';
 
   return `
-    <li class="card" data-id="${escapeAttr(id)}">
-      <button class="star-btn ${isFav ? "on" : ""}" data-action="fav" aria-label="รายการโปรด">${isFav ? "★" : "☆"}</button>
-      ${main}
-      <div class="card-actions">
-        <button class="edit-btn" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}">✏️</button>
-        ${callBtn}
-        ${mapBtn}
+    <li class="swipe-row" data-id="${escapeAttr(id)}">
+      <div class="swipe-reveal">
+        <div class="swipe-actions">
+          <button type="button" class="swipe-act act-fav ${isFav ? "on" : ""}" data-action="fav" aria-label="${isFav ? "เอาออกจากรายการโปรด" : "เพิ่มในรายการโปรด"}"><span class="act-ic">${isFav ? "★" : "☆"}</span>${isFav ? "เลิกโปรด" : "โปรด"}</button>
+          <button type="button" class="swipe-act act-edit" data-action="edit" aria-label="แก้ไข ${escapeAttr(p.nickname)}"><span class="act-ic">✏️</span>แก้ไข</button>
+          ${tokanBtn}
+        </div>
+      </div>
+      <div class="card swipe-fg${known ? " st-" + p.status : ""}">
+        <div class="card-main">
+          <div class="card-name-row">
+            <span class="card-name" title="${escapeAttr(p.nickname)}">${escapeHtml(p.nickname)}</span>
+            ${p.mtCo ? '<span class="tokan-mark" aria-hidden="true">👤</span>' : ""}
+          </div>
+          <div class="card-sub">${badge}${meta}</div>
+        </div>
+        <div class="card-actions">
+          ${callBtn}
+          ${mapBtn}
+        </div>
       </div>
     </li>
   `;
@@ -506,7 +513,9 @@ function noteCardHtml(p) {
   return `
     <li class="swipe-row" data-note-id="${escapeAttr(p.id)}">
       <div class="swipe-reveal">
-        <button class="swipe-delete-btn" data-action="delete-note" aria-label="ลบสถานที่นี้">🗑️</button>
+        <div class="swipe-actions swipe-actions-del">
+          <button class="swipe-delete-btn" data-action="delete-note" aria-label="ลบสถานที่นี้">🗑️</button>
+        </div>
       </div>
       <div class="card swipe-fg">
         <div class="card-main">
@@ -523,8 +532,7 @@ function noteCardHtml(p) {
   `;
 }
 
-const SWIPE_REVEAL = 72;
-const SWIPE_OPEN_THRESHOLD = 28;
+const SWIPE_OPEN_RATIO = 0.4;
 
 function closeAllSwipeRows(exceptRow) {
   document.querySelectorAll(".swipe-row.open").forEach((row) => {
@@ -535,17 +543,19 @@ function closeAllSwipeRows(exceptRow) {
   });
 }
 
-function attachSwipeToDelete() {
+function attachSwipe(list) {
   let drag = null;
   let suppressNextClick = false;
 
-  els.notesList.addEventListener("pointerdown", (e) => {
+  list.addEventListener("pointerdown", (e) => {
     const fg = e.target.closest(".swipe-fg");
     if (!fg) return;
     const row = fg.closest(".swipe-row");
+    const acts = row.querySelector(".swipe-actions");
     closeAllSwipeRows(row);
     drag = {
       row, fg,
+      reveal: acts ? acts.offsetWidth : 0,
       startX: e.clientX,
       dx: 0,
       pointerId: e.pointerId,
@@ -554,30 +564,32 @@ function attachSwipeToDelete() {
     };
   });
 
-  els.notesList.addEventListener("pointermove", (e) => {
+  list.addEventListener("pointermove", (e) => {
     if (!drag || e.pointerId !== drag.pointerId) return;
     drag.dx = e.clientX - drag.startX;
     if (!drag.dragging && Math.abs(drag.dx) > 6) {
       drag.dragging = true;
+      drag.row.classList.add("dragging");
       closeAllSwipeRows(drag.row);
       drag.fg.style.transition = "none";
     }
     if (!drag.dragging) return;
-    const base = drag.wasOpen ? -SWIPE_REVEAL : 0;
-    const tx = Math.max(-SWIPE_REVEAL, Math.min(0, base + drag.dx));
+    const base = drag.wasOpen ? -drag.reveal : 0;
+    const tx = Math.max(-drag.reveal, Math.min(0, base + drag.dx));
     drag.fg.style.transform = `translateX(${tx}px)`;
   });
 
   function endDrag(e) {
     if (!drag || (e.pointerId !== undefined && e.pointerId !== drag.pointerId)) return;
-    const { row, fg, dragging, wasOpen, dx } = drag;
+    const { row, fg, dragging, wasOpen, dx, reveal } = drag;
     fg.style.transition = "";
+    row.classList.remove("dragging");
     if (dragging) {
-      const base = wasOpen ? -SWIPE_REVEAL : 0;
-      const finalX = Math.max(-SWIPE_REVEAL, Math.min(0, base + dx));
-      const shouldOpen = finalX <= -SWIPE_OPEN_THRESHOLD;
+      const base = wasOpen ? -reveal : 0;
+      const finalX = Math.max(-reveal, Math.min(0, base + dx));
+      const shouldOpen = finalX <= -reveal * SWIPE_OPEN_RATIO;
       row.classList.toggle("open", shouldOpen);
-      fg.style.transform = shouldOpen ? `translateX(-${SWIPE_REVEAL}px)` : "";
+      fg.style.transform = shouldOpen ? `translateX(-${reveal}px)` : "";
       suppressNextClick = true;
     } else if (wasOpen) {
       row.classList.remove("open");
@@ -587,17 +599,20 @@ function attachSwipeToDelete() {
     drag = null;
   }
 
-  els.notesList.addEventListener("pointerup", endDrag);
-  els.notesList.addEventListener("pointercancel", endDrag);
+  list.addEventListener("pointerup", endDrag);
+  list.addEventListener("pointercancel", endDrag);
 
-  els.notesList.addEventListener("click", (e) => {
+  list.addEventListener("click", (e) => {
     if (suppressNextClick) {
       suppressNextClick = false;
       e.preventDefault();
       e.stopPropagation();
     }
   }, true);
+}
 
+function attachSwipeToDelete() {
+  [els.favList, els.allList, els.notesList].forEach(attachSwipe);
   document.addEventListener("pointerdown", (e) => {
     if (!e.target.closest(".swipe-row")) closeAllSwipeRows(null);
   });
@@ -1010,15 +1025,22 @@ function attachEvents() {
   document.addEventListener("click", (e) => {
     const favBtn = e.target.closest('[data-action="fav"]');
     if (favBtn) {
-      const li = favBtn.closest(".card");
+      const li = favBtn.closest(".swipe-row");
       toggleFavorite(li.dataset.id);
       return;
     }
     const editBtn = e.target.closest('[data-action="edit"]');
     if (editBtn) {
-      const li = editBtn.closest(".card");
+      const li = editBtn.closest(".swipe-row");
+      closeAllSwipeRows(null);
       const p = state.people.find((x) => personId(x) === li.dataset.id);
       if (p) openEditor(p);
+      return;
+    }
+    const tokanAct = e.target.closest(".act-tokan");
+    if (tokanAct) {
+      if (tokanAct.classList.contains("disabled")) e.preventDefault();
+      else setTimeout(() => closeAllSwipeRows(null), 0);
       return;
     }
     const delBtn = e.target.closest('[data-action="delete-note"]');

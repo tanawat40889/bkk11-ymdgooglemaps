@@ -444,7 +444,6 @@ function safeUrl(u) {
 function metaParts(p) {
   const parts = [];
   if (isVisible("note") && p.note) parts.push(p.note);
-  if (isVisible("district") && p.khet) parts.push(p.khet);
   for (const c of state.columns) {
     if (!isVisible(c.key)) continue;
     const v = (p.extra || {})[c.key];
@@ -463,6 +462,7 @@ function cardHtml(p) {
   const known = p.status && isVisible("status") && STATUSES.includes(p.status);
   const badge = known
     ? `<span class="badge ${p.status}">${p.status === "Active" ? "● " : ""}${p.status}</span>` : "";
+  const khet = isVisible("district") && p.khet ? `<span class="khet" title="${escapeAttr(p.khet)}">${escapeHtml(p.khet)}</span>` : "";
   const parts = metaParts(p);
   const meta = parts.length ? `<span class="card-meta">${escapeHtml(parts.join(" · "))}</span>` : "";
   const mapUrl = safeUrl(p.googleMap);
@@ -492,7 +492,7 @@ function cardHtml(p) {
             <span class="card-name" title="${escapeAttr(p.nickname)}">${escapeHtml(p.nickname)}</span>
             ${p.mtCo ? '<span class="tokan-mark" aria-hidden="true">👤</span>' : ""}
           </div>
-          <div class="card-sub">${badge}${meta}</div>
+          <div class="card-sub">${badge}${khet}${meta}</div>
         </div>
         <div class="card-actions">
           ${callBtn}

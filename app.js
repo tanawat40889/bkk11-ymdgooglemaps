@@ -243,7 +243,7 @@ function mapRow(r) {
     nickname: r.nickname,
     googleMap: r.google_map,
     status: r.status,
-    khet: r.tokan ? r.tokan.sh_nt : null,
+    khet: r.tokan ? r.tokan.khet_name : null,
     phone: r.phone,
     note: r.note,
     extra: r.extra || {},
@@ -278,7 +278,7 @@ async function api(method, path, body, retried = false) {
 
 async function fetchAll() {
   const [rows, cols] = await Promise.all([
-    api("GET", "bkk11_contacts?select=*,tokan(sh_nt)&order=nickname"),
+    api("GET", "bkk11_contacts?select=*,tokan(khet_name)&order=nickname"),
     api("GET", "bkk11_contact_columns?select=*&order=sort,id"),
   ]);
   return { people: rows.map(mapRow), columns: cols };
@@ -703,7 +703,7 @@ function useCurrentLocation() {
 }
 
 function memberLabel(m) {
-  return `${m.name_t || ""} ${m.saku_t || ""}`.trim();
+  return `${m.given_name || ""} ${m.family_name || ""}`.trim();
 }
 
 function renderLinkCurrent() {
@@ -721,9 +721,9 @@ async function searchMembers(q) {
   if (!tokens.length) return [];
   const conds = tokens.map((t) => {
     const v = `*${encodeURIComponent(t)}*`;
-    return `or(name_t.ilike.${v},saku_t.ilike.${v})`;
+    return `or(given_name.ilike.${v},family_name.ilike.${v})`;
   });
-  return api("GET", `tokan?select=mt_co,name_t,saku_t,sh_nt,ch_nt,fa_nt&and=(${conds.join(",")})&order=name_t&limit=20`);
+  return api("GET", `tokan?select=mt_co,given_name,family_name,khet_name,tambon_name,division_name&and=(${conds.join(",")})&order=given_name&limit=20`);
 }
 
 async function runMemberSearch(q, results) {
@@ -735,7 +735,7 @@ async function runMemberSearch(q, results) {
     results.innerHTML = rows.length
       ? rows.map((m) => {
         const taken = state.people.find((x) => x.mtCo === m.mt_co && x.id !== editingId);
-        const sub = [m.sh_nt, m.ch_nt, m.fa_nt].filter(Boolean).join(" · ") + (taken ? ` · ผูกกับ "${taken.nickname}" แล้ว` : "");
+        const sub = [m.khet_name, m.tambon_name, m.division_name].filter(Boolean).join(" · ") + (taken ? ` · ผูกกับ "${taken.nickname}" แล้ว` : "");
         return `<li><button type="button" class="link-item" data-mt="${m.mt_co}" data-name="${escapeAttr(memberLabel(m))}"><b>${escapeHtml(memberLabel(m))}</b><small>${escapeHtml(sub)}</small></button></li>`;
       }).join("")
       : '<li class="link-note">ไม่พบสมาชิกที่ตรงกัน (หรืออยู่นอกขอบเขตสิทธิ์ของคุณ)</li>';
@@ -775,7 +775,7 @@ function setupLinkPicker(p) {
   });
   if (p && p.mtCo) {
     const code = p.mtCo;
-    api("GET", `tokan?select=name_t,saku_t&mt_co=eq.${encodeURIComponent(code)}`)
+    api("GET", `tokan?select=given_name,family_name&mt_co=eq.${encodeURIComponent(code)}`)
       .then(([m]) => {
         if (m && editLink.mtCo === code) {
           editLink.name = memberLabel(m);
@@ -824,11 +824,11 @@ async function saveEditor() {
   try {
     let row;
     if (editingId === null) {
-      [row] = await api("POST", "bkk11_contacts?select=*,tokan(sh_nt)", body);
+      [row] = await api("POST", "bkk11_contacts?select=*,tokan(khet_name)", body);
       if (!row) throw new Error("ไม่มีสิทธิ์เพิ่มรายการ");
       state.people.push(mapRow(row));
     } else {
-      [row] = await api("PATCH", `bkk11_contacts?id=eq.${editingId}&select=*,tokan(sh_nt)`, body);
+      [row] = await api("PATCH", `bkk11_contacts?id=eq.${editingId}&select=*,tokan(khet_name)`, body);
       if (!row) throw Object.assign(new Error("ไม่มีสิทธิ์แก้รายการนี้"), { status: 403 });
       const i = state.people.findIndex((x) => x.id === editingId);
       if (i >= 0) state.people[i] = mapRow(row);
